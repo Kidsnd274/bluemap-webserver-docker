@@ -1,5 +1,5 @@
 services:
-  bluemap:
+  bluemap:  # You can comment this entire service out if not needed
     image: ghcr.io/bluemap-minecraft/bluemap:v5.10
     restart: always
     command: -r -u -w
