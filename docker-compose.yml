@@ -20,11 +20,12 @@ services:
       - .env
     volumes:
       - './db_data:/var/lib/mysql'
-    healthcheck:                     # ← tells Compose when MySQL is ready
-      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -p$${MARIADB_ROOT_PASSWORD} --silent"]
-      interval: 5s
-      retries: 10
-      timeout: 3s
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost --user=root --password=${MARIADB_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s # Allows time for initialization scripts to run
   php:
     build:
       dockerfile: php-dockerfile
