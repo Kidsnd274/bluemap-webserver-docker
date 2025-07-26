@@ -26,14 +26,12 @@ services:
       retries: 10
       timeout: 3s
   php:
-    # image: php:8.4-fpm-alpine
     build:
       dockerfile: php-dockerfile
       context: .
     restart: always
     volumes:
       - './web:/var/www/html'
-      # - './php:/usr/src/php'
     depends_on:
       db:
         condition: service_healthy
