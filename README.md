@@ -1,89 +1,104 @@
 # BlueMap External Web Server with Docker
-You can use the SQL option as well. This docker-compose setup uses MariaDB, nginx, and php containers for the external web server. It also provides the BlueMap server to render your map if you want.
 
-## Setup (Docker Setup)
-Create a .env file with these variables
-```
-MARIADB_ROOT_PASSWORD=<REDACTED>
-MARIADB_DATABASE=BlueMap
-```
+This setup uses MariaDB, Nginx, and PHP containers to host an external BlueMap web server. It also includes a BlueMap server instance that can be used to render your maps into the SQL database.
 
-After that, configure your sql.php file (`web/sql.php`)
-```
-<?php
+## 🚀 Setup (Docker Setup)
 
-// !!! SET YOUR SQL-CONNECTION SETTINGS HERE: !!!
+1. **Configure Environment Variables**
+   Create a `.env` file in the root directory with these variables:
+   ```env
+   MARIADB_ROOT_PASSWORD=<your_password>
+   MARIADB_DATABASE=BlueMap
+   ```
 
-$driver   = 'mysql'; // 'mysql' (MySQL) or 'pgsql' (PostgreSQL)
-$hostname = 'db';
-$port     = 3306;
-$username = 'root';
-$password = '<REDACTED>';
-$database = 'BlueMap';
+2. **Configure SQL Connection for the Web Server**
+   Configure your `web/sql.php` file to allow the web server to communicate with the database:
+   ```php
+   <?php
+   
+   // !!! SET YOUR SQL-CONNECTION SETTINGS HERE: !!!
+   
+   $driver   = 'mysql'; // 'mysql' (MySQL) or 'pgsql' (PostgreSQL)
+   $hostname = 'db';
+   $port     = 3306;
+   $username = 'root';
+   $password = '<your_password>';
+   $database = 'BlueMap';
+   
+   // !!! END - DONT CHANGE ANYTHING AFTER THIS LINE !!!
+   ```
+   *Note: If you don't have this file, run `docker compose up -d` once to generate the initial structure, or use your existing BlueMap instance to generate it.*
 
-// !!! END - DONT CHANGE ANYTHING AFTER THIS LINE !!!
-```
+3. **Launch the Application**
+   ```bash
+   docker compose up -d
+   ```
 
-If you don't have this file, you need the BlueMap server to generate it. Either generate it using the provided BlueMap server or the one in your Minecraft Server instance.
+---
 
-Once that's done it should work. Run `docker compose up -d` to launch the application.
+## 🗺️ Rendering Worlds (BlueMap Server Setup)
 
-> ⚠️ If you don't want to use the BlueMap Server, you can comment out the entire container in the `docker-compose.yml` file
+Follow these steps if you want to use the included BlueMap service to render your maps.
 
-## Setup (BlueMap Server Setup)
-Follow these steps if you want to use the BlueMap server in this Docker application to render your maps.
-
-### BlueMap SQL Configuration
-First, you need to setup the SQL configuration. After following the [Docker Setup](#setup-docker-setup), make sure to launch the Docker application with `docker compose up -d` at least once to generate all the configuration files.
-
-In `storages/sql.conf`, make sure these settings are set correctly.
-```
-##                          ##
-##         BlueMap          ##
-##      Storage-Config      ##
-##                          ##
-
+### 1. BlueMap SQL Configuration
+In `storages/sql.conf`, ensure the storage type is set to `sql` and the connection details are correct:
+```conf
 storage-type: sql
 connection-url: "jdbc:mariadb://db:3306/bluemap"
 connection-properties: {
     user: "root",
-    password: "<REDACTED>"
+    password: "<your_password>"
 }
 driver-jar: "/app/data/mariadb-java-client-3.5.4.jar"
 driver-class: "org.mariadb.jdbc.Driver"
 ```
 
-Next you will need to download the MariaDB JDBC Connector and provide it to the BlueMap service.\
+### 2. Add the MariaDB JDBC Connector
+BlueMap requires a driver to connect to MariaDB.
+1. Download the [MariaDB Java Client](https://mariadb.com/downloads/connectors/).
+2. Place the `.jar` file in the `data/` directory.
+3. Ensure the `driver-jar` path in `storages/sql.conf` matches the filename you downloaded.
 
-First, download the file using this [link](https://mariadb.com/downloads/connectors/). After that, place the file in `data`, alongside `minecraft-client.jar`.
+### 3. Configure Maps and Worlds
+1. Place your Minecraft world folders into the `worlds/` directory.
+2. Create a configuration file for each map in `config/maps/`.
 
-Make sure your `driver-jar` config (in `storages/sql.conf` has the correct file name and points to the driver .jar file. It should look something like this:
-driver-jar: "/app/data/mariadb-java-client-3.5.4.jar"
-```
-driver-jar: "/app/data/mariadb-java-client-3.5.4.jar"
-```
-
-### BlueMap Map Configuration
-My configuration is configured to have multiple world maps in the `worlds` folder. So basically, I just dump all my worlds in that folder and configure the maps accordingly.
-
-This is an example of one of the maps.
-
-Map Name: Darwin_Server\
-World Folder Location: `worlds/Darwin_Server`\
-BlueMap Configuration Example:
-```
-##                          ##
-##         BlueMap          ##
-##        Map-Config        ##
-##                          ##
-
+**Example Map Configuration (`config/maps/my_world.conf`):**
+```conf
 # The path to the save-folder of the world to render.
-#  (If this is not defined (commented out or removed), the map will be only registered to the web-server and the web-app
-#   but not rendered or loaded by BlueMap. This can be used to display a map that has been rendered somewhere else.)
-world: "worlds/Darwin_Server"
+world: "worlds/my_world"
 dimension: "minecraft:overworld"
-name: "Darwin_Server"
+name: "My World"
 sorting: 0
 ```
+*Note: You can adjust the volume mappings for `worlds`, `config`, `data`, and `web` in the `docker-compose.yml` file if you want to use different local directories.*
 
-The important field is `world:` as that specifies the location of the world folder. You can tweak the folders accordingly in the `docker-compose.yml` file.
+---
+
+## 🧹 Switching to Map-Only Mode (Post-Rendering)
+
+If you have finished rendering your worlds and no longer wish to host the heavy Minecraft world files, you can switch to a "map-only" deployment. This saves significant disk space by removing the world data while keeping the rendered tiles in the SQL database.
+
+1. **Disable the BlueMap Service**
+   In `docker-compose.yml`, comment out the `bluemap` service:
+   ```yaml
+   # bluemap:
+   #   image: ghcr.io/bluemap-minecraft/bluemap:v5.10
+   #   ...
+   ```
+
+2. **Remove World Files**
+   You can now safely delete the `worlds/` directory.
+
+3. **Restart the Stack**
+   ```bash
+   docker compose up -d
+   ```
+
+The `db`, `php`, and `webserver` services will continue to run, serving the map data from the SQL database through the web interface.
+
+---
+
+## 📚 More Information
+
+For advanced configurations regarding external webservers and SQL storage, refer to the [official BlueMap Wiki](https://bluemap.bluecolored.de/wiki/webserver/ExternalWebserversSQL.html).
